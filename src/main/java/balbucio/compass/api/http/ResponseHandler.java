@@ -1,8 +1,8 @@
 package balbucio.compass.api.http;
 
-import org.jsoup.Connection;
-
+import com.github.nidorx.http.HttpRequest;
+import com.github.nidorx.http.HttpResponse;
 public interface ResponseHandler {
 
-    boolean onResponse(Connection.Request request, Connection.Response response);
+    boolean onResponse(HttpRequest request, HttpResponse response);
 }

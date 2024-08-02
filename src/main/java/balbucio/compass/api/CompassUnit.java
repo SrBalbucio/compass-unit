@@ -48,6 +48,10 @@ public class CompassUnit {
         }
     }
 
+    public void destroy(){
+        executor.shutdown();
+    }
+
     @Builder
     @Data
     public static class TestConfig{
@@ -56,5 +60,6 @@ public class CompassUnit {
         int threads = 1;
         int amountPerSecond = 4;
         Duration maxDuration = Duration.ofMinutes(3);
+        boolean increaseDifficulty = true;
     }
 }

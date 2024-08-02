@@ -1,9 +1,9 @@
 package balbucio.compass.api.http;
 
 import balbucio.compass.api.utilities.Utilities;
-import org.jsoup.Connection;
+import com.github.nidorx.http.HttpRequest;
 
 public interface RequestCreator {
 
-    Connection createRequest(Connection connection, Utilities utils);
+    HttpRequest createRequest(HttpRequest request, Utilities utils);
 }

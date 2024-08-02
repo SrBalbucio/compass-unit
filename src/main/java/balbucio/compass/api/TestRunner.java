@@ -2,16 +2,14 @@ package balbucio.compass.api;
 
 import balbucio.compass.api.http.RequestCreator;
 import balbucio.compass.api.route.TestRoute;
-import org.jsoup.Connection;
-import org.jsoup.Jsoup;
+import balbucio.compass.api.task.ConnectionTest;
 
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -21,7 +19,7 @@ public class TestRunner {
     public static CopyOnWriteArraySet<RequestCreator> DEFAULT_CREATORS = new CopyOnWriteArraySet<>();
 
     static {
-        DEFAULT_CREATORS.add((c, u) -> c.method(Connection.Method.POST).requestBody(""));
+//        DEFAULT_CREATORS.add((c, u) -> c.method("POST").data(""));
     }
 
 
@@ -35,6 +33,7 @@ public class TestRunner {
     private AtomicLong fail = new AtomicLong(0);
     private AtomicLong timeouts = new AtomicLong(0);
     private AtomicReference<List<Long>> times = new AtomicReference<>(new ArrayList<>());
+    private AtomicReference<Map<Integer, Long>> responseCodes = new AtomicReference<>(new HashMap<>());
     private long testDuration;
 
     public TestRunner(CompassUnit unit, ScheduledExecutorService executor) {
@@ -42,13 +41,17 @@ public class TestRunner {
         this.executor = executor;
         this.config = unit.getConfig();
         this.random = new Random();
-        this.reportFile = new File("compass-reports", "compassreport-" + config.identifier + ".txt");
+        this.reportFile = new File("compass-reports", "compassreport-" + config.identifier + "-" + System.currentTimeMillis() + ".txt");
     }
 
     public void reset() {
+        attempts.set(0);
         sucess.set(0);
         fail.set(0);
         timeouts.set(0);
+        times.get().clear();
+        responseCodes.get().clear();
+        testDuration = 0l;
     }
 
     public void writeReport(String path) throws IOException {
@@ -59,15 +62,17 @@ public class TestRunner {
         AtomicLong avgTime = new AtomicLong();
         tts.forEach(avgTime::addAndGet);
 
-        StringBuilder builder = new StringBuilder();
-        builder.append("\n\n");
+        StringBuilder builder = new StringBuilder(Files.readString(reportFile.toPath(), StandardCharsets.UTF_8));
         builder.append("RESULTADOS DO ").append(path).append(":\n");
         builder.append("      Tentativas: ").append(attempts.get()).append("\n");
         builder.append("      Sucessos: ").append(sucess.get()).append("\n");
         builder.append("      Falhas: ").append(fail.get()).append("\n");
         builder.append("      Timeouts: ").append(timeouts.get()).append("\n");
-        builder.append("      Avg. response time: ").append(tts.size() > 0 ? (avgTime.get() / tts.size()) : "-/-").append("\n");
-        builder.append("      Duração do teste: ").append(testDuration).append("\n");
+        builder.append("      Avg. response time: ").append(tts.size() > 0 ? (avgTime.get() / tts.size()) : "-/-").append("ms").append("\n");
+        builder.append("      Duração do teste: ").append(testDuration).append("ms").append("\n");
+        builder.append("      Códigos de Resposta: ").append("\n");
+        responseCodes.get().forEach((code, count) -> builder.append("         - ").append(code).append(": ").append(count).append("\n"));
+        builder.append("\n");
 
         FileWriter writer = new FileWriter(reportFile);
         writer.append(builder);
@@ -84,32 +89,29 @@ public class TestRunner {
         List<ScheduledFuture<?>> scheduledFutures = new ArrayList<>();
 
         for (int i = 0; i < (config.threads * config.amountPerSecond); i++) {
-            scheduledFutures.add(executor.scheduleAtFixedRate(() -> {
-                try {
-                    attempts.incrementAndGet();
-                    RequestCreator creator = creators.get(random.nextInt(creators.size()));
-                    Connection connection = creator.createRequest(createConnection(path), unit.getUtilities());
-                    long start = System.currentTimeMillis();
-                    Connection.Response response = connection.execute();
-                    times.get().add((start - System.currentTimeMillis()));
-                    boolean ok = route.getResponseHandler().onResponse(connection.request(), response);
-                    long n = ok ? sucess.incrementAndGet() : fail.incrementAndGet();
-                } catch (IOException io) {
-                    io.printStackTrace();
-                    fail.incrementAndGet();
-                    timeouts.incrementAndGet();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    fail.incrementAndGet();
-                }
-            }, 0, 1, TimeUnit.SECONDS));
+            scheduledFutures.add(executor.scheduleAtFixedRate(
+                    new ConnectionTest(attempts, sucess, fail, timeouts, times, responseCodes, creators, random, path, unit.getUtilities(), route, config)
+                    , 0, 1, TimeUnit.SECONDS));
         }
 
         long startTime = System.currentTimeMillis();
         long endTime = System.currentTimeMillis() + config.maxDuration.toMillis();
+        long lastIncrease = 0L;
+        long multiplier = 0;
 
         while (System.currentTimeMillis() < endTime) {
             StringBuilder builder = new StringBuilder();
+
+            if (System.currentTimeMillis() > lastIncrease && config.increaseDifficulty) {
+                multiplier = random.nextInt(config.amountPerSecond);
+                lastIncrease = System.currentTimeMillis() + random.nextLong(4000);
+            }
+
+            for (long i = 0; i < multiplier; i++) {
+                scheduledFutures.add(executor.scheduleAtFixedRate(
+                        new ConnectionTest(attempts, sucess, fail, timeouts, times, responseCodes, creators, random, path, unit.getUtilities(), route, config)
+                        , 0, 1, TimeUnit.SECONDS));
+            }
 
             long eta = endTime - System.currentTimeMillis();
 
@@ -122,7 +124,8 @@ public class TestRunner {
                     .append(" - Attempts: ").append(attempts.get())
                     .append(" Successes: ").append(sucess.get())
                     .append(" Failures: ").append(fail.get())
-                    .append(" Timeouts: ").append(timeouts.get());
+                    .append(" Timeouts: ").append(timeouts.get())
+                    .append(" Multiplier: ").append(multiplier);
             System.out.print(builder.toString());
             Thread.sleep(150L);
         }
@@ -133,13 +136,6 @@ public class TestRunner {
 
         System.out.print("\r");
         System.out.print("[" + path + "] ROUTE TEST COMPLETED IN " + TimeUnit.MILLISECONDS.toSeconds(testDuration) + "s, EXECUTED " + attempts.get() + " ATTEMPTS!\n");
-    }
-
-    private Connection createConnection(String action) {
-        return Jsoup.connect(config.getUrl() + action)
-                .timeout(2000)
-                .ignoreContentType(true)
-                .ignoreHttpErrors(true);
     }
 
 }

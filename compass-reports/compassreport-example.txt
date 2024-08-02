@@ -1,9 +1,0 @@
-
-
-RESULTADOS DO /ping:
-      Tentativas: 1952
-      Sucessos: 497
-      Falhas: 479
-      Timeouts: 0
-      Avg. response time: 0
-      Duração do teste: 60151
