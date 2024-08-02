@@ -3,6 +3,7 @@ package balbucio.compass.api;
 import balbucio.compass.api.http.RequestCreator;
 import balbucio.compass.api.route.TestRoute;
 import balbucio.compass.api.task.ConnectionTest;
+import com.github.nidorx.http.HttpRequest;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -19,7 +20,7 @@ public class TestRunner {
     public static CopyOnWriteArraySet<RequestCreator> DEFAULT_CREATORS = new CopyOnWriteArraySet<>();
 
     static {
-//        DEFAULT_CREATORS.add((c, u) -> c.method("POST").data(""));
+        DEFAULT_CREATORS.add((c, u) -> c.method("POST").contentType(HttpRequest.APPLICATION_JSON).data(u.getRandomMap()));
     }
 
 

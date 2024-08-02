@@ -3,9 +3,7 @@ package balbucio.compass.api.utilities;
 import org.ajbrown.namemachine.Name;
 import org.ajbrown.namemachine.NameGenerator;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class Utilities {
 
@@ -17,6 +15,16 @@ public class Utilities {
     public Utilities() {
         this.nameGenerator = new NameGenerator();
         this.random = new Random();
+    }
+
+    public Map<String, String> getRandomMap() {
+        Map<String, String> map = new HashMap<String, String>();
+
+        for (int i = 0; i < getRandomNumber(5, 15); i++) {
+            map.put(generateToken(8), generateToken(8));
+        }
+
+        return map;
     }
 
     public String generateEmail(String firstName, String lastName) {
