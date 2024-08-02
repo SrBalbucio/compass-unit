@@ -1,0 +1,11 @@
+Suite AuthenticationTeste {
+    HTTP RegisterUser {
+        url   : "http://127.0.0.1/api/register"
+        method: "POST"
+        body  : {
+            email: ${},
+            password: ${}
+        }
+        assert responseCode Equals 200
+    }
+}
