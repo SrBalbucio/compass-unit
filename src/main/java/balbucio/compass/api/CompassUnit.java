@@ -1,28 +1,36 @@
 package balbucio.compass.api;
 
-import balbucio.compass.api.http.RequestCreator;
 import balbucio.compass.api.route.TestRoute;
-import balbucio.compass.api.task.TestTask;
 import balbucio.compass.api.utilities.Utilities;
 import lombok.Builder;
 import lombok.Data;
-import org.ajbrown.namemachine.NameGenerator;
+import lombok.Getter;
+import lombok.Setter;
 
+import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class CompassUnit {
 
-    private Executor executors;
+    private ScheduledExecutorService executor;
+    @Getter
+    @Setter
+    private TestConfig config;
+    @Getter
     private Map<String, TestRoute> routes = new ConcurrentHashMap<>();
+    @Getter
     private Utilities utilities;
 
-    public CompassUnit() {
+    public CompassUnit(String url) {
+        this(TestConfig.builder().url(url).build());
+    }
+
+    public CompassUnit(TestConfig config) {
         this.utilities = new Utilities();
+        this.config = config;
+        this.executor = Executors.newScheduledThreadPool(config.threads);
     }
 
     public CompassUnit testRoute(String path, TestRoute route) {
@@ -30,28 +38,22 @@ public class CompassUnit {
         return this;
     }
 
-    public void startTest(TestConfig config) throws InterruptedException {
-        this.executors = (config.threads == -1 ? Executors.newCachedThreadPool() : Executors.newFixedThreadPool(config.threads));
-
-        long startTime = System.currentTimeMillis();
-        long endTime = System.currentTimeMillis() + config.duration.toMillis();
-
-        for (int i = 0; i < config.threads; i++) {
-            executors.execute(new TestTask(this));
+    public void startTest() throws InterruptedException, IOException {
+        TestRunner runner = new TestRunner(this, executor);
+        System.out.println("Initializing test suite.");
+        for (String s : routes.keySet()) {
+            runner.run(s, routes.get(s));
+            runner.writeReport(s);
+            runner.reset();
         }
-
-        while(endTime > System.currentTimeMillis()){
-            Thread.sleep(500L);
-        }
-
-
-
     }
 
     @Builder
     @Data
-    public class TestConfig{
+    public static class TestConfig{
+        String identifier = "test-"+System.currentTimeMillis();
+        String url = "http://localhost:8080";
         int threads = 1;
-        Duration duration = Duration.ofMinutes(2);
+        Duration maxDuration = Duration.ofMinutes(3);
     }
 }

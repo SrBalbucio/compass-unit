@@ -8,7 +8,7 @@ import org.jsoup.Connection;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class TestRoute implements ResponseHandler, Runnable {
+public class TestRoute implements Runnable {
 
     @Getter
     private List<RequestCreator> creators = new CopyOnWriteArrayList<>();
@@ -16,7 +16,6 @@ public class TestRoute implements ResponseHandler, Runnable {
     private ResponseHandler responseHandler;
 
     public TestRoute(){
-        this.responseHandler = this;
     }
 
     public TestRoute addCreator(RequestCreator creator){
@@ -28,12 +27,6 @@ public class TestRoute implements ResponseHandler, Runnable {
         this.responseHandler = responseHandler;
         return this;
     }
-
-    @Override
-    public boolean onResponse(Connection.Request request, Connection.Response response) {
-        return false;
-    }
-
     @Override
     public void run() {
 
