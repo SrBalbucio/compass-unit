@@ -54,6 +54,7 @@ public class CompassUnit {
         String identifier = "test-"+System.currentTimeMillis();
         String url = "http://localhost:8080";
         int threads = 1;
+        int amountPerSecond = 4;
         Duration maxDuration = Duration.ofMinutes(3);
     }
 }

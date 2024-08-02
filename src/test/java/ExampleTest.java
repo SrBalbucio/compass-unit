@@ -16,7 +16,7 @@ public class ExampleTest {
         Express server = new Express();
         Random rand = new Random();
 
-        server.get("/ping", (req, resp) -> {
+        server.post("/ping", (req, resp) -> {
 
             if(rand.nextBoolean()){
                 resp.send();
@@ -26,13 +26,13 @@ public class ExampleTest {
            resp.send("Pong!");
         });
 
-        server.get("/auth", (req, resp) -> {
+        server.post("/auth", (req, resp) -> {
             JSONObject json = req.bodyAsJson();
             String user = json.getString("user");
             String password = json.getString("password");
 
             if(rand.nextBoolean()){
-                resp.send();
+                resp.setStatus(202).send("Quer ser minha namorada!");
                 return;
             }
 
@@ -48,10 +48,14 @@ public class ExampleTest {
                 return;
             }
 
-            Thread.sleep(500L);
+            Thread.sleep(100L);
 
             resp.setStatus(200);
             resp.send("Ta SAFE!");
+        });
+
+        server.addExceptionHandler((e, resp, req) -> {
+            req.setStatus(500).send("Ocorreu um erro aqui!");
         });
 
         server.listen(24466);
@@ -59,12 +63,13 @@ public class ExampleTest {
         CompassUnit compass = new CompassUnit(CompassUnit.TestConfig.builder()
                 .url("http://localhost:24466")
                 .identifier("example")
-                .maxDuration(Duration.ofMinutes(5))
+                .maxDuration(Duration.ofMinutes(1))
+                .amountPerSecond(8)
                 .threads(2)
                 .build());
 
         compass.testRoute("/ping", new TestRoute()
-                .addCreator((con, utils) -> con.method(Connection.Method.GET))
+                .addCreator((con, utils) -> con.method(Connection.Method.POST))
                 .onResponse((res, resp) -> resp.body().equalsIgnoreCase("Pong!")));
 
         compass.testRoute("/auth", new TestRoute()
@@ -80,7 +85,7 @@ public class ExampleTest {
                         .put("user", "")
                         .put("password", "")
                         .toString()).method(Connection.Method.POST))
-                .onResponse((req, resp) -> resp.statusCode() != 200));
+                .onResponse((req, resp) -> resp.statusCode() == 200 && !resp.body().isEmpty()));
 
         compass.startTest();
     }
